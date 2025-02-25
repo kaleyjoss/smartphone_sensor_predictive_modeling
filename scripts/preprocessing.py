@@ -16,6 +16,7 @@ from outliers import smirnov_grubbs as grubbs # annoying to get,
 # Methods from the sklearn module
 import sklearn
 from sklearn.linear_model import LinearRegression
+from scipy.stats import linregress
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
@@ -714,3 +715,132 @@ def create_lag_variables(df, lag_variables, rows_lagged=-1):
         df = df.merge(lagged_df, on=['participant_id', 'dt'], how='left')
 
     return df
+
+
+
+def compute_slope_of_feature(group, x_col="day", y_col="feature"):
+    """Returns the slope of y_col vs. x_col for the given group (DataFrame)."""
+    if len(group) < 2:
+        return np.nan  # Can't compute slope with <2 points
+    
+    x = group[x_col].values
+    y = group[y_col].values
+    
+    slope, intercept, r_value, p_value, std_err = linregress(x, y)
+    return slope
+
+
+
+def make_wide_df(df, ignore_columns, save_dir, df_name):
+
+    # Start a "final" table with just ignore_columns (unique), so we can merge results in.
+    wide_df = df[ignore_columns].drop_duplicates().copy()
+
+    # Create subsets for each time range
+    df_week1 = df[df["week"] <= 1]
+    df_weeku2 = df[df["week"] <= 2]
+    df_weeku4 = df[df["week"] <= 4]
+    df_week4 = df[df["week"] == 4]
+    # df_week6 = df[df["week"] >= 6]
+
+    # Aggregate desired columns
+    columns = list(set(df.columns.to_list()) - set(ignore_columns))
+
+    for feature in columns:
+        print('\nFOR FEATURE: ', feature)
+        # 1) Compute stats for Week 1
+        # ---------------------------
+        # overall average
+        w1_avg = (
+            df_week1.groupby("num_id")[feature]
+            .mean()
+            .reset_index(name=f"{feature}_avg_w1")
+        )
+
+        
+        # 2) Compute stats for Weeks ≤ 2
+        # -------------------------------
+        wu2_avg = (
+            df_weeku2.groupby("num_id")[feature]
+            .mean()
+            .reset_index(name=f"{feature}_avg_wu2")
+        )
+
+
+        # slope over that time period
+        wu2_slope = (
+            df_weeku2.groupby("num_id")
+            .apply(lambda g: compute_slope_of_feature(g, x_col="day", y_col=feature))
+            .reset_index(name=f"{feature}_slope_wu2")
+        )
+        
+        # 3) Compute stats for Weeks ≤ 4
+        # -------------------------------
+        wu4_avg = (
+            df_weeku4.groupby("num_id")[feature]
+            .mean()
+            .reset_index(name=f"{feature}_avg_wu4")
+        )
+        
+        # slope over that time period
+        wu4_slope = (
+            df_weeku4.groupby("num_id")
+            .apply(lambda g: compute_slope_of_feature(g, x_col="day", y_col=feature))
+            .reset_index(name=f"{feature}_slope_wu4")
+        )
+
+        # 4) Compute stats for Week = 4
+        w4_avg = (
+            df_week4.groupby("num_id")[feature]
+            .mean()
+            .reset_index(name=f"{feature}_avg_w4")
+        )
+
+        # 4) Combine all week-range stats for this feature
+        # ------------------------------------------------
+        feature_stats = (
+            w1_avg
+            .merge(wu2_avg, on="num_id", how="outer")
+            # .merge(wu2_slope, on="num_id", how="outer")
+            .merge(wu4_avg, on="num_id", how="outer")
+            # .merge(wu4_slope, on="num_id", how="outer")
+            .merge(w4_avg, on="num_id", how="outer")
+        )        
+        
+        # 5) Merge into our final DataFrame
+        # ---------------------------------
+        wide_df = wide_df.merge(feature_stats, on="num_id", how="outer")
+
+    if 'dt' in wide_df.columns:
+        wide_df = wide_df.drop(columns=['dt'], axis=1)
+    if 'week' in wide_df.columns:
+        wide_df = wide_df.drop(columns=['week'], axis=1)
+    if 'day' in wide_df.columns:
+            wide_df = wide_df.drop(columns=['day'], axis=1)
+    wide_df = wide_df.drop_duplicates()
+
+    wide_df.to_csv(os.path.join(save_dir, f'{df_name}.csv'))
+        
+    # "wide_df" now has columns for every feature and all the created averages
+    #print(wide_df.head())
+
+    return wide_df
+
+
+def round_vars_phq9(wide_df):
+    # make sure the cat is still classifier-friendly (discrete vars)    
+    wide_df['phq9_bin_avg_w1'] = wide_df['phq9_bin_avg_w1'].apply(lambda x: int(x) if pd.notna(x) else x)
+    wide_df['phq9_bin_avg_wu2'] = wide_df['phq9_bin_avg_wu2'].apply(lambda x: int(x) if pd.notna(x) else x)
+    wide_df['phq9_bin_avg_wu4'] = wide_df['phq9_bin_avg_wu4'].apply(lambda x: int(x) if pd.notna(x) else x)
+    wide_df['phq9_bin_avg_w4'] = wide_df['phq9_bin_avg_w4'].apply(lambda x: int(x) if pd.notna(x) else x)
+
+    return wide_df
+
+def round_vars_phq2(wide_df):
+    # make sure the cat is still classifier-friendly (discrete vars)
+    wide_df['phq2_bin_avg_w1'] = wide_df['phq2_bin_avg_w1'].apply(lambda x: int(x) if pd.notna(x) else x)
+    wide_df['phq2_bin_avg_wu2'] = wide_df['phq2_bin_avg_wu2'].apply(lambda x: int(x) if pd.notna(x) else x)
+    wide_df['phq2_bin_avg_wu4'] = wide_df['phq2_bin_avg_wu4'].apply(lambda x: int(x) if pd.notna(x) else x)
+    wide_df['phq2_bin_avg_w4'] = wide_df['phq2_bin_avg_w4'].apply(lambda x: int(x) if pd.notna(x) else x)
+
+    return wide_df

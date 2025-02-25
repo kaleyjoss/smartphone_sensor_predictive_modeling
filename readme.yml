@@ -1,0 +1,50 @@
+smartphone_sensor_predictive_modeling
+
+Folder Structure:
+requirements.txt
+scripts
+    clustering.py
+    __init__.py
+    __pycache__
+    visualization.py
+    preprocessing.py
+    modeling.py
+notebooks
+    01_preprocessing.ipynb
+    02_clustering.ipynb
+    03_modeling.ipynb
+    04_results.ipynb
+
+
+
+Steps of process:
+1. Preprocessing
+  - merging datasets together
+  - imputation
+  - encoding missingness at certain thresholds
+2. Exploratory Data Analysis
+  - Plotting number of participants for each week
+  - Plotting number of participants for each week for each variable
+  - Feature selection with linear regression
+  - EDA: plotting target variable (depression score) against single selected features
+3. Clustering
+  - PCA of features -> groups of modality (texts, calls, mobility, activity, etc)
+  - PCA of subjects' symptom trajectories
+    - by depression score over time
+    - by mobility over time
+    - by activity over time
+  - Clustering of participants into demographic groups
+4. Cluster Analysis
+  - Bar plots of various clusters for target variables
+  - Plotting graphs and descriptive statistics for clusters vs. target variable over time
+5. Preprocessing for machine learning
+  - Scaling
+  - Encoding categorical variables
+  - Creating wide dataframes
+  - Creating lagged dataframes
+5. Modeling Linear Regression and Mixed Effects Linear Regression
+6. Modeling Decision Trees
+7. Modeling Random Forest
+
+  
+  
