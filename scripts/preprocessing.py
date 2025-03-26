@@ -142,6 +142,7 @@ def assign_week_numbers(df):
 ########## Functions ##############
 
 ########## Combine rows from the same day ###############
+pd.set_option('future.no_silent_downcasting', True)
 def combine_same_day(df):
     '''Purpose: 
     So that different variables recorded at different 
@@ -575,24 +576,25 @@ def plot_normalization(df, cols_to_scale, num_to_plot, subject_to_plot=None):
     scaled_df = df.copy()
     
     for x_col in cols_to_scale[0:num_to_plot]:
-        col_df = scaled_df[['participant_id','dt', x_col]]#.dropna()  # Drop NaNs
-        
-        # Apply scaling
-        scaled_values = scaler.fit_transform(col_df[[x_col]].values.reshape(-1, 1))
-        col_df.loc[:, f'{x_col}_scaled'] = scaled_values
-
+        col_df = scaled_df[[x_col]].dropna()  # Drop NaNs
         ## Find outliers using Smirnov-Grubbs test
-        non_outliers_mask = grubbs.test(col_df[[f'{x_col}_scaled']].to_numpy(), alpha=0.05).flatten()
+        non_outliers_mask = grubbs.test(col_df[[x_col]].to_numpy(), alpha=0.05).flatten()
         
         # Keep only non-outliers
-        col_df.loc[:, f'{x_col}_scaled_nonoutliers'] = np.where(
-            col_df[f'{x_col}_scaled'].isin(non_outliers_mask),
-            col_df[f'{x_col}_scaled'],np.nan  # Replace outliers with NaN
+        col_df.loc[:, f'{x_col}_nonoutliers'] = np.where(
+            col_df[x_col].isin(non_outliers_mask),
+            col_df[x_col],
+            np.nan  # Replace outliers with NaN
         )
 
+        # Apply scaling
+        scaled_values = scaler.fit_transform(col_df[[f'{x_col}_nonoutliers']])
+        col_df.loc[:, f'{x_col}_nonoutliers_scaled'] = scaled_values
+
+        
         # Merge back to the scaled_df
-        scaled_df.loc[col_df.index, f'{x_col}_scaled'] = col_df[f'{x_col}_scaled']
-        scaled_df.loc[col_df.index, f'{x_col}_scaled_nonoutliers'] = col_df[f'{x_col}_scaled_nonoutliers']
+        scaled_df.loc[col_df.index, f'{x_col}_nonoutliers'] = col_df[f'{x_col}_nonoutliers']
+        scaled_df.loc[col_df.index, f'{x_col}_nonoutliers_scaled'] = col_df[f'{x_col}_nonoutliers_scaled']
     
         # Plot raw distribution of x_col
         print('This is the raw data')
@@ -600,21 +602,21 @@ def plot_normalization(df, cols_to_scale, num_to_plot, subject_to_plot=None):
         plt.title(f"Distribution of {x_col}")
         plt.show()
 
-        # Check distribution after scaling
-        print('This is the scaled data- it should look exactly like the raw data, but with a different scale')
-        sns.histplot(col_df[f'{x_col}_scaled'], kde=True)
-        plt.title(f"Standard-Scaled {x_col} Distribution w/ outliers ")
+        # Check distribution after removing outliers
+        print('This is the lesioned data- it should have less outliers')
+        sns.histplot(col_df[f'{x_col}_nonoutliers'], kde=True)
+        plt.title(f"{x_col} Distribution no outliers ")
         plt.show()
 
         # Check distribution after scaling & removing outliers
-        print('This is the lesioned data- it should have less outliers')
-        sns.histplot(col_df[f'{x_col}_scaled_nonoutliers'], kde=True)
+        print('Scaled data for same subject in  original dataframe-- should look exaclty like above with different scale')
+        sns.histplot(col_df[f'{x_col}_nonoutliers_scaled'], kde=True)
         plt.title(f"Standard-Scaled {x_col} Distribution no outliers")
         plt.show()
 
         # Check distribution assigning the non-outliers to days_df
         print('More lesioned data but in new  dataframe-- should look exactly like above')
-        sns.histplot(scaled_df[f'{x_col}_scaled_nonoutliers'], kde=True)
+        sns.histplot(scaled_df[f'{x_col}_nonoutliers_scaled'], kde=True)
         plt.title(f"Days_df Scaled {x_col} Distribution no outliers")
         plt.show()
 
@@ -625,15 +627,15 @@ def plot_normalization(df, cols_to_scale, num_to_plot, subject_to_plot=None):
             sub_col_df = col_df[col_df['participant_id']==subject_to_plot]
 
             print('Scaled Data for one subject in modified dataframe')
-            plt.plot(sub_col_df['dt'], sub_col_df[f'{x_col}_scaled'], label='days_df', color='blue', marker='o')  
-            plt.show()
-
-            print('Raw for same subject in  original dataframe-- should look exactly like above')
-            plt.plot(sub_days_df['dt'], sub_days_df[x_col], label='sub_days_df', color='red', marker='o')  
+            plt.plot(sub_col_df['dt'], sub_col_df[f'{x_col}_nonoutliers'], label='days_df', color='blue', marker='o')  
             plt.show()
 
             print('Lesioned data for same subject in  original dataframe-- should have less outliers')
-            plt.plot(sub_days_df['dt'], sub_days_df[f'{x_col}_scaled_nonoutliers'], label='sub_days_df', color='red', marker='o')  
+            plt.plot(sub_days_df['dt'], sub_days_df[x_col], label='sub_days_df', color='red', marker='o')  
+            plt.show()
+            
+            print('Scaled data for same subject in  original dataframe-- should look exaclty like above with different scale')
+            plt.plot(sub_days_df['dt'], sub_days_df[f'{x_col}_nonoutliers_scaled'], label='sub_days_df', color='red', marker='o')  
             plt.show()
 
 
@@ -645,28 +647,29 @@ def normalize_df(df, cols_to_scale):
     
     for x_col in cols_to_scale: 
         col_df = scaled_df[[x_col]].dropna()  # Drop NaNs
-        
-        # Apply scaling
-        scaled_values = scaler.fit_transform(col_df[[x_col]])
-        col_df.loc[:, f'{x_col}_scaled'] = scaled_values
-
         ## Find outliers using Smirnov-Grubbs test
-        non_outliers_mask = grubbs.test(col_df[[f'{x_col}_scaled']].to_numpy(), alpha=0.05).flatten()
+        non_outliers_mask = grubbs.test(col_df[[x_col]].to_numpy(), alpha=0.05).flatten()
         
         # Keep only non-outliers
-        col_df.loc[:, f'{x_col}_scaled_nonoutliers'] = np.where(
-            col_df[f'{x_col}_scaled'].isin(non_outliers_mask),
-            col_df[f'{x_col}_scaled'],
+        col_df.loc[:, f'{x_col}_nonoutliers'] = np.where(
+            col_df[x_col].isin(non_outliers_mask),
+            col_df[x_col],
             np.nan  # Replace outliers with NaN
         )
 
+        # Apply scaling
+        scaled_values = scaler.fit_transform(col_df[[f'{x_col}_nonoutliers']])
+        col_df.loc[:, f'{x_col}_nonoutliers_scaled'] = scaled_values
+
+        
+
         # Merge back to the scaled_df
-        scaled_df.loc[col_df.index, f'{x_col}_scaled_nonoutliers'] = col_df[f'{x_col}_scaled_nonoutliers']
+        scaled_df.loc[col_df.index, f'{x_col}_nonoutliers_scaled'] = col_df[f'{x_col}_nonoutliers_scaled']
     
-    # drop all raw cols from scaled_df (cols which now have a scaled version with "_scaled_nonoutliers")
+    # drop all raw cols from scaled_df (cols which now have a scaled version with "_nonoutliers_scaled")
     scaled_df = scaled_df.drop(columns=cols_to_scale, errors='ignore')
-    # Rename "col_scaled_nonoutliers" to just "col"
-    scaled_df.rename(columns=lambda x: x.replace("_scaled_nonoutliers", ""), inplace=True)
+    # Rename "col_nonoutliers_scaled" to just "col"
+    scaled_df.rename(columns=lambda x: x.replace("_nonoutliers_scaled", ""), inplace=True)
 
     return scaled_df
 
@@ -731,7 +734,7 @@ def compute_slope_of_feature(group, x_col="day", y_col="feature"):
 
 
 
-def make_wide_df(df, ignore_columns, save_dir, df_name):
+def make_wide_df(df, ignore_columns):
 
     # Start a "final" table with just ignore_columns (unique), so we can merge results in.
     wide_df = df[ignore_columns].drop_duplicates().copy()
@@ -747,7 +750,7 @@ def make_wide_df(df, ignore_columns, save_dir, df_name):
     columns = list(set(df.columns.to_list()) - set(ignore_columns))
 
     for feature in columns:
-        print('\nFOR FEATURE: ', feature)
+        #print('\nFOR FEATURE: ', feature)
         # 1) Compute stats for Week 1
         # ---------------------------
         # overall average
@@ -796,14 +799,16 @@ def make_wide_df(df, ignore_columns, save_dir, df_name):
             .reset_index(name=f"{feature}_avg_w4")
         )
 
+        # 6)
+
         # 4) Combine all week-range stats for this feature
         # ------------------------------------------------
         feature_stats = (
             w1_avg
             .merge(wu2_avg, on="num_id", how="outer")
-            # .merge(wu2_slope, on="num_id", how="outer")
+            .merge(wu2_slope, on="num_id", how="outer")
             .merge(wu4_avg, on="num_id", how="outer")
-            # .merge(wu4_slope, on="num_id", how="outer")
+            .merge(wu4_slope, on="num_id", how="outer")
             .merge(w4_avg, on="num_id", how="outer")
         )        
         
@@ -819,7 +824,6 @@ def make_wide_df(df, ignore_columns, save_dir, df_name):
             wide_df = wide_df.drop(columns=['day'], axis=1)
     wide_df = wide_df.drop_duplicates()
 
-    wide_df.to_csv(os.path.join(save_dir, f'{df_name}.csv'))
         
     # "wide_df" now has columns for every feature and all the created averages
     #print(wide_df.head())

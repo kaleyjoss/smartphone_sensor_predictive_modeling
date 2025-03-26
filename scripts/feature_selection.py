@@ -37,19 +37,21 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score
 from fastdtw import dtw
 from sklearn.metrics import normalized_mutual_info_score
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.feature_selection import SelectFromModel
 
 def randomized_logistic_regression(X, y, num_samples=200, selection_threshold=0.1):
     """
     Performs Randomized Logistic Regression (RLR) for feature selection.
 
     Parameters:
-    - X: np.array or DataFrame, feature matrix
-    - y: np.array, target vector (binary classification)
+    - X: DataFrame, feature matrix
+    - y: Series or array, target vector (binary classification)
     - num_samples: int, number of bootstrap samples
     - selection_threshold: float, threshold for feature importance selection
 
     Returns:
-    - selected_features: List of selected feature indices
+    - selected_feature_names: List of selected feature names
     - mean_coefs: Array of mean absolute coefficients for all features
     """
     n_features = X.shape[1]
@@ -60,12 +62,14 @@ def randomized_logistic_regression(X, y, num_samples=200, selection_threshold=0.
         idx = np.random.choice(X.shape[0], size=int(0.7 * X.shape[0]), replace=True)
         X_sample, y_sample = X.iloc[idx], y.iloc[idx]
 
-        # Fit L1-penalized Logistic Regression
-        model = LogisticRegression(penalty='l1', solver='liblinear', max_iter=100)
+        # Fit L1-penalized Logistic Regression with Cross-Validation
+        model = LogisticRegressionCV(
+            penalty='l1', solver='saga', max_iter=10000, cv=5, random_state=34, scoring='accuracy'
+        )
         model.fit(X_sample, y_sample)
 
         # Store the absolute coefficients
-        coef_matrix[i, :] = np.abs(model.coef_)
+        coef_matrix[i, :] = np.abs(model.coef_.flatten())
 
     # Compute mean absolute coefficients across all bootstrap runs
     mean_coefs = np.mean(coef_matrix, axis=0)
@@ -75,9 +79,9 @@ def randomized_logistic_regression(X, y, num_samples=200, selection_threshold=0.
 
     # Get the corresponding feature names
     selected_feature_names = X.columns[selected_features]
-    
 
-    return selected_feature_names, mean_coefs
+    return selected_feature_names.tolist(), mean_coefs
+
 
 
 
