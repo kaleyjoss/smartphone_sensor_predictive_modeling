@@ -219,8 +219,7 @@ def walk_forward_validation(data, test_prc, verbose=False):
 	n_test = int(rows * test_prc)
 	if isinstance(data, pd.DataFrame):
 		data = np.asarray(data)
-	
-	test, train = train_test_split(data, n_test, verbose) # Split based on test_prc
+	test, train = train_test_split(data, test_size=test_prc) # Split based on test_prc
 	if verbose:
 		print('test shape', test.shape, 'train shape', train.shape)
 	history = [row for row in train] 	# Retain rows of the NumPy array, turning into a list

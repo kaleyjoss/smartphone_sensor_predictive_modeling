@@ -5,21 +5,20 @@ import numpy as np
 from scipy.stats import ttest_ind  # For significance testing
 import pandas as pd
 
-def plot_participants_per_time(df, time_period='day', title=None):
+def plot_participants_per_time(df, time_period='day', id_var='num_id', title=None):
     """
     Plots the additive distribution of days/weeks per participant for each dataframe in dfs_scaled.
 
     Parameters:
     dfs_scaled (dict): Dictionary where keys are dataframe names and values are pandas DataFrames.
-                       Each DataFrame must have 'participant_id' and either 'day' or 'week' columns.
+                   Each DataFrame must have a participant_id column and day (in integer) column.
 
     Returns:
     None (Displays the plots)
     """
-    time = time_period
 
     # Count unique days/weeks per participant
-    participant_time_counts = df.groupby('participant_id')[time].nunique()
+    participant_time_counts = df.groupby(id_var)[time_period].nunique()
 
     # Count how many participants have at least X days/weeks
     time_distribution = participant_time_counts.value_counts().sort_index()
@@ -30,17 +29,51 @@ def plot_participants_per_time(df, time_period='day', title=None):
     # Plot the bar chart
     plt.figure(figsize=(10, 6))
     plt.bar(cumulative_counts.index, cumulative_counts.values, color='skyblue')
-    plt.xlabel(f'At Least X {time}s per Participant')
+    plt.xlabel(f'At Least X {time_period}s per Participant')
     plt.ylabel('Number of Participants')
     if title != None:
-        plt.title(f'Additive Distribution of {time}s per Participant for DF: {title}')
+        plt.title(f'Additive Distribution of {time_period}s per Participant for DF: {title}')
     else:
-        plt.title(f'Additive Distribution of {time}s per Participant for DF')
+        plt.title(f'Additive Distribution of {time_period}s per Participant for DF')
     plt.xticks(cumulative_counts.index, rotation=90, fontsize=7)
     plt.tight_layout()
     plt.show()
 
 
+
+def plot_time_per_participants(df, time_period='day', id_var='num_id', title=None):
+    """
+    Plots the additive distribution of days/weeks per participant for each dataframe in dfs_scaled.
+
+    Parameters:
+    dfs_scaled (dict): Dictionary where keys are dataframe names and values are pandas DataFrames.
+                       Each DataFrame must have a participant_id column and day (in integer) column.
+
+    Returns:
+    None (Displays the plots)
+    """
+
+    # Count unique days/weeks per participant
+    participant_time_counts = df.groupby(time_period)[id_var].nunique()
+
+    # Count how many participants have at least X days/weeks
+    time_distribution = participant_time_counts.value_counts().sort_index()
+
+    # Compute cumulative counts in reverse order
+    cumulative_counts = np.cumsum(time_distribution[::-1])[::-1]
+
+    # Plot the bar chart
+    plt.figure(figsize=(10, 6))
+    plt.bar(cumulative_counts.index, cumulative_counts.values, color='skyblue')
+    plt.xlabel(f'At Least X {id_var}s per Time')
+    plt.ylabel('Number of Timepoints')
+    if title != None:
+        plt.title(f'Additive Distribution of {id_var}s per Timepoint for DF: {title}')
+    else:
+        plt.title(f'Additive Distribution of {id_var}s per Timepoint for DF')
+    plt.xticks(cumulative_counts.index, rotation=90, fontsize=7)
+    plt.tight_layout()
+    plt.show()
 
 
 

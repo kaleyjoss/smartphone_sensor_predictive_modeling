@@ -28,7 +28,7 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score
 from fastdtw import dtw
 from sklearn.metrics import normalized_mutual_info_score
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
+from outliers import smirnov_grubbs as grubbs
 
 
 
@@ -348,7 +348,7 @@ def normalize_df(df, columns_to_scale):
     non_numeric_cols = list(set(df.columns.to_list()).difference(columns_to_scale))
     scaled_df = df[non_numeric_cols]
     for x_col in columns_to_scale:
-        print('\nFOR COLUMN:', x_col)
+        #print('\nFOR COLUMN:', x_col)
         col_df = df[['participant_id', x_col]].dropna()  # Drop NaNs
         col_df_clean = col_df[col_df[x_col] != 0]  # Remove 0 values
 

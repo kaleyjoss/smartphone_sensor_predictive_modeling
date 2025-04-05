@@ -848,3 +848,25 @@ def round_vars_phq2(wide_df):
     wide_df['phq2_bin_avg_w4'] = wide_df['phq2_bin_avg_w4'].apply(lambda x: int(x) if pd.notna(x) else x)
 
     return wide_df
+
+
+def person_centered_df(df: pd.DataFrame, features: list) -> pd.DataFrame:
+    """
+    Centers each feature by subtracting the person's mean for that feature.
+    
+    Parameters:
+        df (pd.DataFrame): Input DataFrame with columns including 'person', and specified features over time (rows).
+        features (list): List of feature column names to be centered.
+        
+    Returns:
+        pd.DataFrame: DataFrame with person-centered features.
+    """
+    # Calculate person-wise mean for each feature
+    person_means = df.groupby('person')[features].transform('mean')
+    
+    # Subtract the person's mean from each feature
+    df_centered = df.copy()
+    df_centered[features] = df[features] - person_means
+    
+    return df_centered
+
