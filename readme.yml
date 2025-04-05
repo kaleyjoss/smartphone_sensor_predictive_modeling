@@ -1,19 +1,29 @@
 smartphone_sensor_predictive_modeling
 
 Folder Structure:
-requirements.txt
-scripts
-    clustering.py
-    __init__.py
-    __pycache__
-    visualization.py
-    preprocessing.py
-    modeling.py
-notebooks
-    01_preprocessing.ipynb
-    02_clustering.ipynb
-    03_modeling.ipynb
-    04_results.ipynb
+/scripts
+feature_selection.py	
+svm.py
+modeling.py	
+variables.py
+clustering.py		
+preprocessing.py	
+visualization.py
+
+/notebooks
+01_preprocessing.ipynb
+01_preprocessing_DT.ipynb
+02_var_clustering.ipynb
+02_feature_pca.ipynb	
+02_feature_pca_with_missingness.ipynb	
+02_feature_selection.ipynb									
+03_demographic_clustering.ipynb
+04_modeling_DT.ipynb
+04_modeling_LR.ipynb
+04_modeling_RF.ipynb
+05_results.ipynb
+05_svm.ipynb
+
 
 
 
