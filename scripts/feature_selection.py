@@ -87,19 +87,19 @@ def randomized_logistic_regression(X, y, num_samples=200, selection_threshold=0.
 
 ############# RUN A hierarchical agg clustering on averaging all VARS, V1 ##############
 def create_condensed_matrix(data, scaled_x_cols, scaled_y_cols):
-    full_df = data[['participant_id', 'week', 'day', 'dt'] + scaled_x_cols + scaled_y_cols]
+    full_df = data[['num_id', 'week', 'day', 'dt'] + scaled_x_cols + scaled_y_cols]
     full_df = full_df.dropna()
     #full_df_v1 = full_df_v1.drop(columns='aggregate_communication_scaled')
-    print('In full_dt_v1 there are', len(full_df['participant_id'].unique()), 'subjects')
+    print('In full_dt_v1 there are', len(full_df['num_id'].unique()), 'subjects')
 
     for col in scaled_x_cols:
         full_df[col] = pd.to_numeric(full_df[col], errors='coerce')
 
     # Create hierarchical clustering of all the variables
 
-    # # Group by 'participant_id' and calculate the mean for each variable
-    keep_columns = ['participant_id'] + [var for var in full_df.columns.to_list() if var.endswith('_scaled_int') or 'phq2_sum' in var]
-    avg_df = full_df[keep_columns].groupby('participant_id').mean().reset_index()
+    # # Group by 'num_id' and calculate the mean for each variable
+    keep_columns = ['num_id'] + [var for var in full_df.columns.to_list() if var.endswith('_scaled_int') or 'phq2_sum' in var]
+    avg_df = full_df[keep_columns].groupby('num_id').mean().reset_index()
 
     # Delete non-numerical/id rows (participant id)
     data = avg_df.iloc[0:, 1:] 
@@ -407,7 +407,7 @@ def pca_on_clusters(df, cluster_dict, n_clusters, n_components=1):
         # # Heatmap of the loadings
         # plt.figure(figsize=(10, 6))
         # sns.heatmap(loadings, annot=False, cmap='coolwarm', center=0)
-        # plt.title(f'PCA Component Loadings for V2 Option B: Taking out communication vars\n{len(full_df_v2['participant_id'].unique())} Subjects\nExplained variance of each PC: {pca.explained_variance_ratio_}')
+        # plt.title(f'PCA Component Loadings for V2 Option B: Taking out communication vars\n{len(full_df_v2['num_id'].unique())} Subjects\nExplained variance of each PC: {pca.explained_variance_ratio_}')
         # plt.xlabel('Original Features')
         # plt.ylabel('Principal Components')
         # plt.show()
@@ -415,7 +415,7 @@ def pca_on_clusters(df, cluster_dict, n_clusters, n_components=1):
 
         # PCA Scores (transformed data)
         c1_scores_df = pd.DataFrame(c1_pca, columns=[f'c{i}_PC{x+1}' for x in range(pca.n_components_)])
-        c1_scores_df[['participant_id','dt','week']] = df[['participant_id','dt','week']]
+        c1_scores_df[['num_id','dt','week']] = df[['num_id','dt','week']]
         
         # Store in dictionary
         pca_dict[i] = {
@@ -440,7 +440,7 @@ def pca_on_clusters(df, cluster_dict, n_clusters, n_components=1):
 def merge_df_via_cluster_pca_dict(df, pca_dict, on_columns):
 # Merge all the pc cluster loadings onto the original df
     for cluster in pca_dict.keys():
-        df = df.merge(pca_dict[cluster]['df'], on=['participant_id','week','dt'])
+        df = df.merge(pca_dict[cluster]['df'], on=['num_id','week','dt'])
         df = df.rename(columns={f"c{cluster}_PC1": pca_dict[cluster]['name']}) 
     return df
 

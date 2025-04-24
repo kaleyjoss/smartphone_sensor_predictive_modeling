@@ -5,7 +5,8 @@ df_mis = ['v1_day_mis','v2_day_mis','v1_week_mis','v2_week_mis']
 df_names_with_mis = df_names + df_mis
 
 # Variables to keep consistent over all dfs and to not alter in preprocessing
-id_columns=['participant_id','num_id','dt','week','day']
+id_columns=['num_id','dt','week','day','v']
+demographic_columns = ['gender','age','num_id']
 
 ## Variables from Baseline Surveys
 mhs_cols = ['mhs_1','mhs_2','mhs_3','mhs_4','mhs_5']
@@ -68,3 +69,21 @@ all_daily_cols = phq2_cols + daily_cols_v1 + daily_v2_sensor + daily_v2_phone + 
 numeric_cols = daily_cols_v1 + daily_v2_sensor + daily_v2_phone + phq2_cols + phq9_cols + weekly_cols
 passive_cols = daily_cols_v1 + daily_v2_sensor + daily_v2_phone
 survey_cols = phq2_cols + weekly_cols
+
+# df_list_all = df_names + aggregate_dfs
+# id_key = pd.read_csv(os.path.join(brighten_dir, 'id_key.csv'))
+
+# for name in df_list_all:
+#     df = pd.read_csv(os.path.join(brighten_dir, f'{name}.csv'))
+#     df_key = pd.merge(df, id_key[['num_id','v']], how='outer', on='num_id')
+#     df_key.to_csv(os.path.join(brighten_dir, f'{name}_{end}.csv'))
+#     print(f'Saved {name}.csv with V1/V2')
+
+#     for end in df_endings:
+#         if os.path.exists(os.path.join(brighten_dir, f'{name}_{end}.csv')):
+#             df = pd.read_csv(os.path.join(brighten_dir, f'{name}_{end}.csv'))
+#             df_key = pd.merge(df, id_key[['num_id','v']], how='outer', on='num_id')
+#             df_key.to_csv(os.path.join(brighten_dir, f'{name}_{end}.csv'))
+#             print(f'Saved {name}_{end}.csv with V1/V2')
+#         else:
+#             print(f'Skipping {name}_{end}.csv, cant find')

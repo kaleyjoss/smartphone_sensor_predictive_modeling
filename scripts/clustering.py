@@ -349,7 +349,7 @@ def normalize_df(df, columns_to_scale):
     scaled_df = df[non_numeric_cols]
     for x_col in columns_to_scale:
         #print('\nFOR COLUMN:', x_col)
-        col_df = df[['participant_id', x_col]].dropna()  # Drop NaNs
+        col_df = df[['num_id', x_col]].dropna()  # Drop NaNs
         col_df_clean = col_df[col_df[x_col] != 0]  # Remove 0 values
 
         # Reshape to 2D array as scaler expects
