@@ -311,12 +311,12 @@ def reindex_to_all_days(days_df):
 def add_linear_interpolated_col(input_df, cols_to_interpolate, threshold_percentage, overwrite=False, verbose=False):
 
     int_label = f'_int{threshold_percentage}'
-    input_df['day'] = pd.to_datetime(input_df['day'], errors='coerce')
+    input_df['dt'] = pd.to_datetime(input_df['dt'], errors='coerce')
     
     if not any(int_label in col for col in input_df.columns) or overwrite:
         output_df = input_df.copy()
         
-        output_df['day'] = pd.to_datetime(output_df['day'], errors='coerce')
+        output_df['dt'] = pd.to_datetime(output_df['dt'], errors='coerce')
 
         for var in cols_to_interpolate:
             if var in input_df.columns:
@@ -327,7 +327,7 @@ def add_linear_interpolated_col(input_df, cols_to_interpolate, threshold_percent
                 var_weeks_interpolated = 0
 
                 for participant, sub_weeks in output_df.groupby('num_id'):
-                    sub_weeks = sub_weeks.sort_values('day')
+                    sub_weeks = sub_weeks.sort_values('dt')
                     num_unique_weeks = sub_weeks['week'].nunique()  # Count unique weeks
                     var_weeks += num_unique_weeks
                     
@@ -337,7 +337,7 @@ def add_linear_interpolated_col(input_df, cols_to_interpolate, threshold_percent
                         if percent_non_na >= threshold_percentage and percent_non_na < 100:
                             if verbose==True:
                                 print(f'Participant {participant} | Week {week_num} | Percent non-NA: {round(percent_non_na,3)}\nInterpolating...')
-                            sub_week = sub_week.set_index('day')
+                            sub_week = sub_week.set_index('dt')
                             sub_week[f'{var}{int_label}'] = sub_week[var].interpolate(method='time')
                             percent_non_na_after = (1 - sub_week[f'{var}{int_label}'].isna().mean()) * 100
                             sub_week = sub_week.reset_index()
@@ -958,16 +958,14 @@ def create_lag_variables(df, lag_variables, rows_lagged=-1):
     lagged_dfs = []
 
     for col in lag_variables: 
-        print(f'\n Adding lag of {rows_lagged} to column: {col} -> {col}_lag{rows_lagged}')
-        
-        # Filter for non-NA values in the selected column
-        col_df = df[['num_id', 'dt', col]].dropna().copy()
-        print(f'col df shape is: {col_df.shape}')
+        # Filter for selected column
+        col_df = df[['num_id', 'dt', col]].copy()
+        print(f'\n Adding lag of {rows_lagged} to column: {col} -> {col}_lag{rows_lagged}, {col_df.shape[0]} rows')
 
         # Group by participant and shift the variable
         col_df[f'{col}_lag{rows_lagged}'] = col_df.groupby('num_id')[col].shift(periods=rows_lagged)
         
-        lagged_dfs.append(col_df[['num_id', 'dt',col, f'{col}_lag{rows_lagged}']])
+        lagged_dfs.append(col_df[['num_id', 'dt', f'{col}_lag{rows_lagged}']])
 
     # Merge all lagged columns back into the original dataframe **once**
     for lagged_df in lagged_dfs:
