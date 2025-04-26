@@ -1,0 +1,12 @@
+{
+    "v1_week": {
+        "best_params": {
+            "random_strength": 0.737,
+            "learning_rate": 0.189,
+            "l2_leaf_reg": 9.924,
+            "iterations": 290,
+            "depth": 5,
+            "border_count": 162
+        }
+    }
+}

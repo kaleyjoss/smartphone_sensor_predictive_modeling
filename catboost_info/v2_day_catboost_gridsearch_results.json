@@ -1,0 +1,12 @@
+{
+    "v2_day": {
+        "best_params": {
+            "random_strength": 0.29,
+            "learning_rate": 0.01305,
+            "l2_leaf_reg": 3.31,
+            "iterations": 272,
+            "depth": 3,
+            "border_count": 126
+        }
+    }
+}

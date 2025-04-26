@@ -1,0 +1,38 @@
+{
+    "v1_day": {
+        "best_params": {
+            "bagging_temperature": 0.3745401188473625,
+            "border_count": 124,
+            "depth": 9,
+            "iterations": 156,
+            "l2_leaf_reg": 8.796910002727692,
+            "learning_rate": 0.1890550473839461,
+            "random_strength": 0.44583275285359114
+        },
+        "best_score": NaN
+    },
+    "v2_day": {
+        "best_params": {
+            "bagging_temperature": 0.9868869366005173,
+            "border_count": 119,
+            "depth": 3,
+            "iterations": 285,
+            "l2_leaf_reg": 3.9348817471803814,
+            "learning_rate": 0.014223946814525337,
+            "random_strength": 0.19884240408880516
+        },
+        "best_score": 0.3224346024346024
+    },
+    "v1_week": {
+        "best_params": {
+            "bagging_temperature": 0.3586467812961639,
+            "border_count": 158,
+            "depth": 5,
+            "iterations": 283,
+            "l2_leaf_reg": 9.773730719279554,
+            "learning_rate": 0.23223058532626134,
+            "random_strength": 0.697015740995268
+        },
+        "best_score": 0.26160343768381783
+    }
+}

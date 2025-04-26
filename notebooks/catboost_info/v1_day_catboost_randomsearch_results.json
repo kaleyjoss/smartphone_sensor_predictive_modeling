@@ -1,0 +1,14 @@
+{
+    "v1_day": {
+        "best_params": {
+            "bagging_temperature": 0.3745401188473625,
+            "border_count": 124,
+            "depth": 9,
+            "iterations": 156,
+            "l2_leaf_reg": 8.796910002727692,
+            "learning_rate": 0.1890550473839461,
+            "random_strength": 0.44583275285359114
+        },
+        "best_score": NaN
+    }
+}
