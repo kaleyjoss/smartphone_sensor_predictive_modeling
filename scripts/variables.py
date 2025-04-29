@@ -5,7 +5,7 @@ df_mis = ['v1_day_mis','v2_day_mis','v1_week_mis','v2_week_mis']
 df_names_with_mis = df_names + df_mis
 
 # Variables to keep consistent over all dfs and to not alter in preprocessing
-id_columns=['num_id','dt','week','day','v']
+id_columns=['num_id','dt','week','day']
 demographic_columns = ['gender','age','num_id']
 
 ## Variables from Baseline Surveys
@@ -57,10 +57,14 @@ daily_v2_common = ['distance_walking', 'hours_active', 'distance_active',
         'distance_powered_vehicle','hours_of_sleep','hours_powered_vehicle',
           'hours_stationary', 'hours_stationary_nhw','hours_walking']
 
+
 daily_misc_cols = 'hours_accounted_for'
 mobility_cols = ['mobility','mobility_radius']
 
-all_daily_cols = phq2_cols + daily_cols_v1 + daily_v2_sensor + daily_v2_phone + daily_v2_weather 
+daily_v2_sensor_avg = [f'{var}_hr' for var in daily_v2_sensor if var!='came_to_work']
+
+all_daily_cols = phq2_cols + daily_cols_v1 + daily_v2_sensor_avg + daily_v2_phone + daily_v2_weather 
+
 
 
 

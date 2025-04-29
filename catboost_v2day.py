@@ -60,8 +60,8 @@ from scripts.variables import id_columns, daily_cols_v1, daily_v2_common
 
 ## Load in dfs scaled
 df_names = ['v2_day']
-df_pca = ['v1_day_pca', 'v1_week_pca']
-df_all = df_names + df_pca
+# df_pca = ['v1_day_pca', 'v1_week_pca']
+# df_all = df_names + df_pca
 results={}
 
 for name in df_names:

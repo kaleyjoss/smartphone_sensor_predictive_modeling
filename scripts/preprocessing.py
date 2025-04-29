@@ -23,6 +23,8 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
 
+id_columns =['num_id','dt','week','day','idx']
+
 
 ########### Generic functions ###############
 def rmse(y_true, y_pred):
@@ -385,12 +387,14 @@ def add_linear_interpolated_col(input_df, cols_to_interpolate, threshold_percent
 
 ################## Impute using MissForest #########################
 
-def simulate_missing_data(original_df, missing_percentage=0.1, random_state=None):
+def simulate_missing_data(nonID_df, missing_percentage=0.1, random_state=None):
     np.random.seed(random_state)
+    
 
-    total_cells = original_df.shape[0] * original_df.shape[1]
+    total_cells = nonID_df.shape[0] * nonID_df.shape[1]
     cells_to_impute = int(total_cells * missing_percentage)
-    df_mask_out = original_df.copy()
+    print(f'Masking {cells_to_impute} of {total_cells}')
+    df_mask_out = nonID_df.copy()
     #print(f"Masking out 0.1 of {total_cells} ({cells_to_impute}), out of full df {df_mask_out.shape}")
 
     # Get all non-NaN (row, col) indices
@@ -399,7 +403,9 @@ def simulate_missing_data(original_df, missing_percentage=0.1, random_state=None
                          if not pd.isna(df_mask_out.iat[i, j])]
 
     # Randomly select some to mask
-    selected_positions = np.random.choice(len(non_nan_positions), size=cells_to_impute, replace=False)
+    if len(non_nan_positions) < cells_to_impute:
+        print(f"Error: len(non_nan_positions) < cells_to_impute:{len(non_nan_positions)} < {cells_to_impute}")
+    selected_positions = np.random.choice(len(non_nan_positions), size=cells_to_impute, replace=True)
     
     masked_values = []
     for idx in selected_positions:
@@ -415,6 +421,7 @@ def simulate_missing_data(original_df, missing_percentage=0.1, random_state=None
 
 
 def simulate_missing_data_bycol(original_df, col, missing_percentage=0.1, random_state=None):
+    original_df = original_df.set_index('idx')
     col_index = original_df.columns.get_loc(col)
 
     total_cells = len(original_df)
@@ -473,14 +480,14 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
 
 
         # Evaluate MSE & R-squared
-        print("NaNs in original_values:", np.isnan(original_values).sum(), original_values)
-        print("NaNs in imputed_values:", np.isnan(imputed_values).sum(), imputed_values)        
+        #print("NaNs in original_values:", np.isnan(original_values).sum(), original_values)
+        #print("NaNs in imputed_values:", np.isnan(imputed_values).sum(), imputed_values)        
         if np.isnan(original_values).sum() > 0 or  np.isnan(imputed_values).sum() > 0:
-            return None, None, None, None
+            return 999, 999, 999, 999
         rmse_value = rmse(original_values, imputed_values)
         rmse_scaled = rmse_value / np.mean(original_values)
         imp_r2 = sklearn.metrics.r2_score(original_values,imputed_values)
-        print(f"Imputed R² is {imp_r2}, RMSE (as percentage of value) is {rmse_scaled}")    
+        print(f"Imputed R² is {imp_r2:3f}, RMSE (as percentage of value) is {rmse_scaled}")    
         return original_values, imputed_values, rmse_scaled, imp_r2
 
 
@@ -492,6 +499,7 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
     if the subject has at least imputation_threshold proportion of non-missing data.
     """
     r2_list = {}
+    r2 = None
     imputed_sub_dfs = []
     imputed_subs = []
     nonimputed_subs = []
@@ -515,10 +523,11 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
             
             # Drop columns that are entirely NaN
             fully_missing_cols = sub_og.columns[sub_og.isna().all()]
-            if len(fully_missing_cols) > 0:
-                sub_og_clean = sub_og.drop(columns=fully_missing_cols)
-                nonimpute_cols = nonimpute_cols + list(fully_missing_cols)
-                # Skip this subject if all columns were removed
+            non_missing_cols = sub_og.columns[~sub_og.isna().all()]
+            if len(fully_missing_cols) > 0 or len(non_missing_cols) > 0:
+                sub_og_clean = sub_og.drop(columns=fully_missing_cols+non_missing_cols)
+                nonimpute_cols = nonimpute_cols + list(fully_missing_cols) + list(non_missing_cols)
+                # Skip this subject if all columns were remove
                 if sub_og_clean.shape[1] == 0:
                     if verbose:
                         print(f"Skipping subject {sub}: all imputation columns are missing.\n\n")
@@ -536,12 +545,12 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
                 df_mask_out, df_mask_in = simulate_missing_data(sub_og_clean, missing_percentage=0.1, random_state=None)
                 
                 # # Drop any columns in df_sim_missing that became fully NaN
-                # fully_missing_cols = df_sim_missing.columns[df_sim_missing.isna().all()]
-                # if len(fully_missing_cols) > 0:
-                #     impute_df_clean = df_sim_missing.drop(columns=fully_missing_cols)
-                #     sim_missing_mask = pd.DataFrame(sim_missing_mask, index=df_sim_missing.index, 
-                #                                     columns=df_sim_missing.columns).drop(columns=fully_missing_cols).to_numpy()
-                #     nonimpute_cols = nonimpute_cols + list(fully_missing_cols)
+                fully_missing_cols = df_mask_out.columns[df_mask_out.isna().all()]
+                if len(fully_missing_cols) > 0:
+                    impute_df_clean = df_mask_out.drop(columns=fully_missing_cols)
+                    sim_missing_mask = pd.DataFrame(sim_missing_mask, index=df_mask_out.index, 
+                                                    columns=df_mask_out.columns).drop(columns=fully_missing_cols).to_numpy()
+                    nonimpute_cols = nonimpute_cols + list(fully_missing_cols)
                 
                 # Check if all the imputation columns are empty and skip if so
                 if df_mask_out.isna().sum().sum() == (df_mask_out.shape[0] * df_mask_out.shape[1]):
@@ -561,7 +570,7 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
                         imputed_sub_dfs.append(sub_og)
                         nonimputed_subs.append(sub)
                     # If the r-squared of imputed data is over 0.75, keep the imputation
-                    if r2 > error_threshold:
+                    if r2 != 999 and r2 > error_threshold:
                         if verbose:
                             print(f"Using imputed values for {sub}: RMSE is {rmse_scaled},  R² is {r2}\n\n")
                             
@@ -645,7 +654,7 @@ def missforest_imputation_bycol(original_df, cols_to_impute, imputation_threshol
             
             original_values, imputed_values, rmse_scaled, r2 = compute_imputation_error(df_clean[col], imputed_col, df_mask_in)
             # If the r-squared of imputed data is over 0.7, keep the imputation
-            if r2 > error_threshold:
+            if r2 != 999 and r2 > error_threshold:
                 if verbose:
                     print(f"Using imputed values for {col}: RMSE is {rmse_scaled},  R² is {r2}\n\n")
                     
@@ -670,66 +679,108 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.3,
     Impute missing values using MissForest for each subject (identified by 'num_id')
     if the subject has at less than imputation_threshold proportion of missing data.
     """
+    
     imputed_cols = []
-    nonimputed_cols = []
-
     nonimputed_cols = [col for col in original_df.columns if col not in cols_to_impute]
+    r2=999
+    id_columns = ['num_id','dt','week','day','idx']
     nonimputed_df = original_df[nonimputed_cols]
-    imputed_df = pd.DataFrame()
-    df = original_df[cols_to_impute].copy()
+    df = original_df[cols_to_impute + id_columns].copy() # this df will be input into the imputer 
     
     # Drop columns that are entirely NaN
-    fully_missing_cols = df.columns[df.isna().all()]
+    fully_missing_cols = [col for col in df.columns if col not in id_columns and df[col].isna().all()]
+    non_missing_cols = [col for col in df.columns if col not in id_columns and df[col].isna().sum()==0]
+
     if len(fully_missing_cols) > 0:
+        print(f'Cols {fully_missing_cols} fully missing, not imputing')
+        nonimputed_df = pd.merge(nonimputed_df, df_clean[fully_missing_cols + id_columns], on=id_columns)
         df_clean = df.drop(columns=fully_missing_cols)
-        cols_to_impute.remove(fully_missing_cols)
-        nonimputed_df = pd.concat([nonimputed_df, df_clean[fully_missing_cols]], axis=1)
+        nonimputed_cols += fully_missing_cols
+        cols_to_impute = [col for col in cols_to_impute if col not in fully_missing_cols]
+        
+    if len(non_missing_cols) > 0:
+        print(f'Cols {non_missing_cols} fully non-NA, not imputing')
+        nonimputed_df = pd.merge(nonimputed_df, df_clean[non_missing_cols + id_columns], on=id_columns)
+        df_clean = df.drop(columns=[col for col in df.columns if col in non_missing_cols])        
+        nonimputed_cols += non_missing_cols
+        cols_to_impute = [col for col in cols_to_impute if col not in non_missing_cols]
+    
+    if len(cols_to_impute) < 1:
+        print(f'All impute cols fully non-NA or all-NA, returning original df')
+        return original_df, r2, imputed_cols, nonimputed_cols
+
     else:
         df_clean = df
     
-        missing_perc = df_clean.isna().sum().sum() / (df_clean.shape[0] * df_clean.shape[1])
-        
-        # Check that it's over the imputation threshold (ie 60%, 70% etc)
-        if not missing_perc < imputation_threshold:
-            if verbose:
-                print(f"Not imputing: missing perc is {missing_perc}")
-        else:
-            if verbose:
-                print(f"Imputing: missing perc is {missing_perc}...")
-
-            df_mask_out, df_mask_in = simulate_missing_data(df_clean, missing_percentage=0.1, random_state=None)
-            df_mask_out = pd.DataFrame(df_mask_out)
-            
-            # # Drop any columns in df_mask_out that became fully NaN
-            fully_missing_cols = df_mask_out.columns[df_mask_out.isna().all()]
-            if len(fully_missing_cols) > 0:
-                df_mask_out = df_mask_out.drop(columns=fully_missing_cols)
-                df_mask_in = pd.DataFrame(df_mask_in, index=df_mask_out.index, 
-                                                columns=df_mask_out.columns).drop(columns=fully_missing_cols).to_numpy()
-                nonimpute_cols = nonimpute_cols + list(fully_missing_cols)
-                nonimputed_df = pd.concat([nonimputed_df, df_clean[fully_missing_cols]], axis=1)
-            
-            # Impute the data
-            imputer = MissForest()
-            imputed_array = imputer.fit_transform(df_mask_out)
-            imputed_df = pd.DataFrame(imputed_array, columns=df_mask_out.columns, index=df_mask_out.index) 
-
-            original_values, imputed_values, rmse_scaled, r2 = compute_imputation_error(df_clean, imputed_df, df_mask_in)
-            
-            # If the r-squared of imputed data is over 0.7, keep the imputation
-            if r2 is not None and r2 > error_threshold:
-                if verbose:
-                    print(f"Using imputed values for df RMSE is {rmse_scaled},  R² is {r2}\n\n")
-                    
-
-            # Otherwise, don't impute that sub
-            else:
-                if verbose: 
-                    print(f"Not imputing df, R-squared of imputation was below {error_threshold}, R² is {r2}\n\n")
-                return original_df, r2, imputed_cols, nonimputed_cols
-           
+    # Missing cells divided by total cells in the DF (row by height) 
+    missing_perc = df_clean.isna().sum().sum() / (df_clean.shape[0] * df_clean.shape[1])
     
-    return imputed_df, r2, imputed_cols, nonimputed_cols
+    # Check that it's over the imputation threshold (ie 60%, 70% etc)
+    if not missing_perc < imputation_threshold:
+        if verbose:
+            print(f"Not imputing: missing perc is {missing_perc}")
+            return original_df, r2, imputed_cols, nonimputed_cols
+    else:
+        if verbose:
+            print(f"Imputing: missing perc is {missing_perc}...")
+        
+        nonID_df = df_clean[cols_to_impute + ['idx']].set_index('idx')
+
+        df_mask_out, df_mask_in = simulate_missing_data(nonID_df, missing_percentage=0.1, random_state=None)
+        df_mask_out = pd.DataFrame(df_mask_out)
+        
+        # # Drop any columns in df_mask_out that became fully NaN
+        fully_missing_cols = [col for col in df.columns if col not in id_columns and df[col].isna().all()]
+        non_missing_cols = [col for col in df.columns if col not in id_columns and df[col].isna().sum()==0]
+        
+        if len(fully_missing_cols) > 0:
+            print(f'Cols {fully_missing_cols} fully missing, not imputing')
+            df_mask_in = pd.DataFrame(df_mask_in, index=df_mask_out.index, 
+                                            columns=df_mask_out.columns).drop(columns=fully_missing_cols).to_numpy()
+            df_mask_out = df_mask_out.drop(columns=fully_missing_cols)
+            nonimputed_cols = nonimputed_cols + list(fully_missing_cols) 
+            cols_to_impute.remove(fully_missing_cols)
+            nonimputed_df = pd.merge(nonimputed_df, df_clean[fully_missing_cols + id_columns], on=id_columns)
+        
+        if len(non_missing_cols) > 0:
+            print(f'Cols {non_missing_cols} fully non-NA, not imputing')
+            df_mask_in = pd.DataFrame(df_mask_in, index=df_mask_out.index, 
+                                            columns=df_mask_out.columns).drop(columns=non_missing_cols).to_numpy()
+            df_mask_out = df_mask_out.drop(columns=non_missing_cols)
+            nonimputed_cols = nonimputed_cols + list(non_missing_cols) 
+            cols_to_impute = [col for col in cols_to_impute if col not in non_missing_cols]
+            nonimputed_df = pd.merge(nonimputed_df, df_clean[non_missing_cols + id_columns], on=id_columns)
+        
+        if len(cols_to_impute) < 1:
+            print(f'All impute cols fully non-NA or fully NA, returning original df')
+            return original_df, r2, imputed_cols, nonimputed_cols
+
+        
+        # Impute the data
+        imputer = MissForest()
+        imputed_nonID_array = imputer.fit_transform(df_mask_out)
+        imputed_nonID_df = pd.DataFrame(imputed_nonID_array, columns=df_mask_out.columns, index=df_mask_out.index)
+
+        original_values, imputed_values, rmse_scaled, r2 = compute_imputation_error(nonID_df, imputed_nonID_df, df_mask_in)
+        
+        # If the r-squared of imputed data is over 0.7, keep the imputation
+        if r2 != 999 and r2 > error_threshold:
+            if verbose:
+                print(f"Using imputed values for df RMSE is {rmse_scaled},  R² is {r2}\n\n")
+            imputed_nonID_df = imputed_nonID_df.reset_index()
+            imputed_nonID_df = imputed_nonID_df.rename({'index': 'idx'})
+            imputed_df = pd.merge(imputed_nonID_df, df_clean, on='idx')
+            imputed_df_merged = pd.merge(nonimputed_df, imputed_df, on=id_columns)
+            return imputed_df_merged, r2, imputed_cols, nonimputed_cols
+
+        # Otherwise, don't impute that sub
+        else:
+            if verbose: 
+                print(f"Not imputing df, R-squared of imputation was below {error_threshold}, R² is {r2}\n\n")
+            return original_df, r2, imputed_cols, nonimputed_cols
+        
+    
+        
 
 
 
@@ -845,7 +896,7 @@ def remove_outliers(df, cols_to_scale):
     clean_df = df.copy()
     
     for x_col in cols_to_scale: 
-        col_df = clean_df[[x_col]]  
+        col_df = clean_df[[x_col]].copy()  
         ## Find outliers using Smirnov-Grubbs test
         non_outliers_mask = grubbs.test(col_df[[x_col]].to_numpy(), alpha=0.05).flatten()
         
