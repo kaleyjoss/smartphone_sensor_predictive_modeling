@@ -411,8 +411,9 @@ def simulate_missing_data(nonID_df, missing_percentage=0.1, random_state=None):
     for idx in selected_positions:
         row, col = non_nan_positions[idx]
         value = df_mask_out.iat[row, col]
-        masked_values.append((row, col, value))
-        df_mask_out.iat[row, col] = np.nan
+        if not np.isnan(value):
+            masked_values.append((row, col, value))
+            df_mask_out.iat[row, col] = np.nan
 
     df_mask_in = pd.DataFrame(masked_values, columns=['row', 'column', 'value'])
     return df_mask_out, df_mask_in
@@ -420,7 +421,7 @@ def simulate_missing_data(nonID_df, missing_percentage=0.1, random_state=None):
 
 
 
-def simulate_missing_data_bycol(original_df, col, missing_percentage=0.1, random_state=None):
+#def simulate_missing_data_bycol(original_df, col, missing_percentage=0.1, random_state=None):
     original_df = original_df.set_index('idx')
     col_index = original_df.columns.get_loc(col)
 
@@ -483,6 +484,7 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
         #print("NaNs in original_values:", np.isnan(original_values).sum(), original_values)
         #print("NaNs in imputed_values:", np.isnan(imputed_values).sum(), imputed_values)        
         if np.isnan(original_values).sum() > 0 or  np.isnan(imputed_values).sum() > 0:
+            print(f'RMSE not computed, {np.isnan(original_values).sum()} NaN in original values and {np.isnan(imputed_values).sum()} NaN in imputed values')
             return 999, 999, 999, 999
         rmse_value = rmse(original_values, imputed_values)
         rmse_scaled = rmse_value / np.mean(original_values)
@@ -493,7 +495,7 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
 
 
 
-def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshold=0.6, error_threshold=0.8, verbose=False):
+#def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshold=0.6, error_threshold=0.8, verbose=False):
     """
     Impute missing values using MissForest for each subject (identified by 'num_id')
     if the subject has at least imputation_threshold proportion of non-missing data.
@@ -600,7 +602,7 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
 
 
 
-def missforest_imputation_bycol(original_df, cols_to_impute, imputation_threshold=0.3, error_threshold=0.8, verbose=False):
+#def missforest_imputation_bycol(original_df, cols_to_impute, imputation_threshold=0.3, error_threshold=0.8, verbose=False):
     """
     Impute missing values using MissForest for each subject (identified by 'num_id')
     if the subject has at less than imputation_threshold proportion of missing data.
@@ -769,7 +771,7 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.3,
                 print(f"Using imputed values for df RMSE is {rmse_scaled},  R² is {r2}\n\n")
             imputed_nonID_df = imputed_nonID_df.reset_index()
             imputed_nonID_df = imputed_nonID_df.rename({'index': 'idx'})
-            imputed_df = pd.merge(imputed_nonID_df, df_clean, on='idx')
+            imputed_df = pd.merge(imputed_nonID_df, df_clean[id_columns], on='idx')
             imputed_df_merged = pd.merge(nonimputed_df, imputed_df, on=id_columns)
             return imputed_df_merged, r2, imputed_cols, nonimputed_cols
 

@@ -72,7 +72,7 @@ def process_cluster_data(scaled_df,
     
     # Step 2: Group by participant and week and compute the average of the cluster variable
     grouped_df = var_df.groupby(['num_id', 'week'], as_index=False)[cluster_variable].mean()
-    
+
     # Step 3: Drop rows (participant/week) with NA values for the cluster variable
     cleaned_df = grouped_df.dropna(subset=[cluster_variable])
     
@@ -90,30 +90,31 @@ def process_cluster_data(scaled_df,
         plt.show()
     
     # Step 6: Pivot the DataFrame to create a matrix with participants as rows and weeks as columns
-    pivot_df = grouped_df.pivot(index='num_id', columns='week', values=cluster_variable).reset_index()
-    
+    # fill na with 0 then mask out later
+    pivot_df = grouped_df.pivot(index='num_id', columns='week', values=cluster_variable).reset_index().fillna(0)
+
     # Step 7: Identify the columns corresponding to the required weeks
     week_columns = [week for week in required_weeks if week in pivot_df.columns]
+    print("weeks found:", week_columns)
     
-    # Step 8: Filter participants who have complete data for the required weeks
-    filtered_df = pivot_df[pivot_df[week_columns].notna().all(axis=1)]
     
     # Step 9: Print the shape of the filtered DataFrame
-    print("Filtered DataFrame shape:", filtered_df.shape)
+    print("Filtered DataFrame shape:", pivot_df.shape)
+    pivot_df_for_graphing = pivot_df.mask(pivot_df==0)
     
     # Step 10: Plot the variable's scores for each participant over the required weeks if requested
     if plot_participant_lines:
         plt.figure(figsize=(12, 8))
-        for _, row in filtered_df.iterrows():
+        for _, row in pivot_df_for_graphing.iterrows():
             plt.plot(week_columns, row[week_columns], marker='o', label=f'Participant {row["num_id"]}')
         plt.xlabel('Week')
         plt.ylabel(cluster_variable)
         plt.title(f'{cluster_variable} Avg Scores Each Week for Each Participant\n'
                   f'(Each colored line represents a unique participant) \n'
-                  f'{filtered_df.shape[0]} Participants')
+                  f'{pivot_df.shape[0]} Participants')
         plt.show()
     
-    return filtered_df
+    return pivot_df
 
 
 
