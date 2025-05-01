@@ -440,7 +440,7 @@ def pca_on_clusters(df, cluster_dict, n_clusters, n_components=1):
 def merge_df_via_cluster_pca_dict(df, pca_dict, on_columns):
 # Merge all the pc cluster loadings onto the original df
     for cluster in pca_dict.keys():
-        df = df.merge(pca_dict[cluster]['df'], on=['num_id','week','dt'])
+        df = df.merge(pca_dict[cluster]['df'], on=on_columns)
         df = df.rename(columns={f"c{cluster}_PC1": pca_dict[cluster]['name']}) 
     return df
 

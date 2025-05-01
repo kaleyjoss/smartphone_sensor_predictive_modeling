@@ -946,21 +946,6 @@ def apply_boxcox(df, cols):
     
     return df_transformed, lambdas
 
-def apply_boxcox(df, cols):
-    df_transformed = df.copy()
-    lambdas = {}  # Store lambda values for each column (optional but useful)
-
-    for col in cols:
-        # Ensure values are strictly positive
-        if (df_transformed[col] <= 0).any():
-            df_transformed[col] = df_transformed[col] + 1e-6
-        
-        # Apply Box-Cox
-        transformed, fitted_lambda = boxcox(df_transformed[col])
-        df_transformed[col] = transformed
-        lambdas[col] = fitted_lambda
-    
-    return df_transformed, lambdas
 
 
 def apply_log_transform(df, cols):
