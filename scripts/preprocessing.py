@@ -495,7 +495,7 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
 
 
 
-#def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshold=0.6, error_threshold=0.8, verbose=False):
+def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshold=0.6, error_threshold=0.8, verbose=False):
     """
     Impute missing values using MissForest for each subject (identified by 'num_id')
     if the subject has at least imputation_threshold proportion of non-missing data.
@@ -514,7 +514,7 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
         # Only impute for subjects with 25 days or more
         if sub_og.shape[0] < 25:
             if verbose:
-                print(f"Skipping subject {sub}: all imputation columns are missing.\n\n")
+                print(f"1 Skipping subject {sub}: all imputation columns are missing.\n\n")
             imputed_sub_dfs.append(sub_og)
             nonimputed_subs.append(sub)
             continue
@@ -527,12 +527,12 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
             fully_missing_cols = sub_og.columns[sub_og.isna().all()]
             non_missing_cols = sub_og.columns[~sub_og.isna().all()]
             if len(fully_missing_cols) > 0 or len(non_missing_cols) > 0:
-                sub_og_clean = sub_og.drop(columns=fully_missing_cols+non_missing_cols)
-                nonimpute_cols = nonimpute_cols + list(fully_missing_cols) + list(non_missing_cols)
+                sub_og_clean = sub_og.drop(columns=list(fully_missing_cols))
+                nonimpute_cols = nonimpute_cols + list(fully_missing_cols)
                 # Skip this subject if all columns were remove
                 if sub_og_clean.shape[1] == 0:
                     if verbose:
-                        print(f"Skipping subject {sub}: all imputation columns are missing.\n\n")
+                        print(f"2 Skipping subject {sub}: all imputation columns are missing.\n\n")
                     imputed_sub_dfs.append(sub_og)
                     nonimputed_subs.append(sub)
                     continue
@@ -557,7 +557,7 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
                 # Check if all the imputation columns are empty and skip if so
                 if df_mask_out.isna().sum().sum() == (df_mask_out.shape[0] * df_mask_out.shape[1]):
                     if verbose:
-                        print(f"Skipping subject {sub}: all imputation columns are missing.\n\n")
+                        print(f"3 Skipping subject {sub}: all imputation columns are missing.\n\n")
                     imputed_sub_dfs.append(sub_og)
                     nonimputed_subs.append(sub)
                     continue
@@ -963,7 +963,7 @@ def apply_log_transform(df, cols):
             else:
                 df_transformed[col] = np.log1p(df_transformed[col])  # log1p(x) = log(x + 1)
     #print(f'Cols transformed: {df_transformed.columns.to_list()}')
-    cols_left = cols_nonnumer = cols_dropped
+    cols_left = cols_nonnumer + cols_dropped
     #print(f'Cols left: {cols_left}')
     df_transformed = pd.concat([df_transformed, df[cols_left]], axis=1) # add columns
 
