@@ -18,7 +18,7 @@ import sklearn
 from sklearn.linear_model import LinearRegression
 from scipy.stats import linregress
 from scipy.stats import boxcox
-
+from scipy.stats import ks_2samp
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error
@@ -492,8 +492,9 @@ def compute_imputation_error(original_df, imputed_df, df_mask_in):
         rmse_value = rmse(original_values, imputed_values)
         rmse_scaled = rmse_value / np.mean(original_values)
         imp_r2 = sklearn.metrics.r2_score(original_values,imputed_values)
+        statistic, p_value = ks_2samp(original_values, imputed_values)
         print(f"Imputed R² is {imp_r2:3f}, RMSE (as percentage of value) is {rmse_scaled}")    
-        return original_values, imputed_values, rmse_scaled, imp_r2
+        return original_values, imputed_values, rmse_scaled, imp_r2, p_value
 
 
 
@@ -503,7 +504,8 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
     Impute missing values using MissForest for each subject (identified by 'num_id')
     if the subject has at least imputation_threshold proportion of non-missing data.
     """
-    r2_list = {}
+    print('00')
+    results = {}
     r2 = None
     imputed_sub_dfs = []
     imputed_subs = []
@@ -561,24 +563,25 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
                     imputer = MissForest()
                     sub_imputed = imputer.fit_transform(df_mask_out)
                     
-                    original_values, imputed_values, rmse_scaled, r2 = compute_imputation_error(sub_og_clean, sub_imputed, df_mask_in)
+                    original_values, imputed_values, rmse_scaled, r2, p = compute_imputation_error(sub_og_clean, sub_imputed, df_mask_in)
                     # If the r-squared of imputed data is over error threshold, keep the imputation
-                    if r2 != 999 and r2 > error_threshold:
+                    if r2 != 999 and r2 > error_threshold or p < 0.05:
                         if verbose:
-                            print(f"Using imputed values for {sub}: RMSE is {rmse_scaled},  R² is {r2}\n\n")
+                            print(f"Using imputed values for {sub}: RMSE is {rmse_scaled},  R² is {r2}, p-value of KS test is {p}\n\n")
                             
                         sub_df_nonimputed = sub_og[[col for col in nonimpute_cols if col in sub_og.columns]]
                         sub_imputed = pd.merge(sub_df_nonimputed, sub_imputed, on=id_columns)
                         imputed_sub_dfs.append(sub_imputed)
                         imputed_subs.append(sub)
-                        r2_list[sub] = r2
+                        results[sub] = {"r2":r2,'p':p}
+
                     # Otherwise, don't impute that sub
                     else:
                         if verbose: 
-                            print(f"Skipping sub {sub}, R-squared of imputation was below {error_threshold}\n\n")
+                            print(f"Skipping sub {sub}, R-squared of imputation was below {error_threshold}, p-value of KS test is {p}\n\n")
                         imputed_sub_dfs.append(sub_og)
                         nonimputed_subs.append(sub)
-                        r2_list[sub] = r2
+                        results[sub] = {"r2":r2,'p':p}
                     
 
                     
@@ -589,7 +592,7 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
                 nonimputed_subs.append(sub)
 
     imputed_df = pd.concat(imputed_sub_dfs)
-    return imputed_df, r2_list, imputed_subs, nonimputed_subs
+    return imputed_df, results, imputed_subs, nonimputed_subs
 
 
 
@@ -677,6 +680,7 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6,
     imputed_cols = []
     nonimputed_cols = [col for col in original_df.columns if col not in cols_to_impute]
     r2=999
+    p=999
     id_columns = ['num_id','dt','week','day','idx']
     nonimputed_df = original_df[nonimputed_cols]
     df = original_df[cols_to_impute + id_columns].copy() # this df will be input into the imputer 
@@ -688,7 +692,7 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6,
     # Return if there are no cols left to impute
     if len(cols_to_impute) == 0:
         print(f'All impute cols fully non-NA or all-NA, returning original df')
-        return original_df, r2, imputed_cols, nonimputed_cols
+        return original_df, r2, p, imputed_cols, nonimputed_cols
     # If any fully_missing_cols, add them to nonimputed_df and drop from df (df_clean = to impute)
     if len(fully_missing_cols) > 0:
         print(f'Cols {fully_missing_cols} fully missing, not imputing')
@@ -712,7 +716,7 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6,
     if non_missing_proportion < imputation_threshold:
         if verbose:
             print(f"Not imputing: non missing perc is only {non_missing_proportion}, not < {imputation_threshold}")
-            return original_df, r2, imputed_cols, nonimputed_cols
+            return original_df, r2, p, imputed_cols, nonimputed_cols
     else:
         if verbose:
             print(f"Imputing: non missing perc is {non_missing_proportion}...")
@@ -742,23 +746,23 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6,
             # Using df_mask_in for referencing the rows/index and original values
             # Using imputed_nonID_df as the imputed to see if it's the same as original values
             # Using nonID df just to make sure the columns are the same as imputed_nonID_df and nothing is weird
-            original_values, imputed_values, rmse_scaled, r2 = compute_imputation_error(nonID_df, imputed_nonID_df, df_mask_in)
+            original_values, imputed_values, rmse_scaled, r2, p = compute_imputation_error(nonID_df, imputed_nonID_df, df_mask_in)
             
             # If the r-squared of imputed data is over error_threshold, keep the imputation
-            if r2 != 999 and r2 > error_threshold:
+            if r2 != 999 and r2 > error_threshold or p < 0.05:
                 if verbose:
-                    print(f"Using imputed values for df RMSE is {rmse_scaled},  R² is {r2}\n\n")
+                    print(f"Using imputed values for df RMSE is {rmse_scaled},  R² is {r2}, p-value of KS test is {p}\n\n")
                 imputed_nonID_df = imputed_nonID_df.reset_index()
                 imputed_nonID_df = imputed_nonID_df.rename({'index': 'idx'})
                 imputed_df = pd.merge(imputed_nonID_df, df_clean[id_columns], on='idx')
                 imputed_df_merged = pd.merge(nonimputed_df, imputed_df, on=id_columns)
-                return imputed_df_merged, r2, imputed_cols, nonimputed_cols
+                return imputed_df_merged, r2, p, imputed_cols, nonimputed_cols
 
             # Otherwise, don't impute that sub
             else:
                 if verbose: 
-                    print(f"Not imputing df, R-squared of imputation was below {error_threshold}, R² is {r2}\n\n")
-                return original_df, r2, imputed_cols, nonimputed_cols
+                    print(f"Not imputing df, R-squared of imputation was below {error_threshold}, R² is {r2}, p-value of KS test is {p}\n\n")
+                return original_df, r2, p, imputed_cols, nonimputed_cols
             
     
         
@@ -952,7 +956,7 @@ def apply_log_transform(df, cols):
 
 ################# Create lagged variables for predictor  ##################
 
-def create_lag_variables(df, lag_variables, rows_lagged=-1):
+def create_lag_variables(df, lag_variables, rows_lagged=-1, time_var='dt'):
     """
     Create lagged versions of selected variables, shifting values forward in time.
     
@@ -966,27 +970,26 @@ def create_lag_variables(df, lag_variables, rows_lagged=-1):
     Returns:
     pd.DataFrame: Original dataframe with added lagged columns.
     """
-
-    # Ensure dt is a datetime object
-    df['dt'] = pd.to_datetime(df['dt'])
-    df = df.sort_values(by=['num_id', 'dt'])
+        
+    df[time_var] = pd.to_datetime(df[time_var])
+    df = df.sort_values(by=['num_id', time_var])
 
     # Create a copy to store new lagged values
     lagged_dfs = []
 
     for col in lag_variables: 
         # Filter for selected column
-        col_df = df[['num_id', 'dt', col]].copy()
+        col_df = df[['num_id', time_var, col]].copy()
         print(f'\n Adding lag of {rows_lagged} to column: {col} -> {col}_lag{rows_lagged}, {col_df.shape[0]} rows')
 
         # Group by participant and shift the variable
         col_df[f'{col}_lag{rows_lagged}'] = col_df.groupby('num_id')[col].shift(periods=rows_lagged)
         
-        lagged_dfs.append(col_df[['num_id', 'dt', f'{col}_lag{rows_lagged}']])
+        lagged_dfs.append(col_df[['num_id', time_var, f'{col}_lag{rows_lagged}']])
 
     # Merge all lagged columns back into the original dataframe **once**
     for lagged_df in lagged_dfs:
-        df = df.merge(lagged_df, on=['num_id', 'dt'], how='left')
+        df = df.merge(lagged_df, on=['num_id', time_var], how='left')
 
     return df
 
