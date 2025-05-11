@@ -36,7 +36,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def process_cluster_data(scaled_df, 
-                         cluster_variable='mobility', 
+                         cluster_variable='mobility',
                          required_weeks=None, 
                          plot_histogram=True, 
                          plot_participant_lines=True):
@@ -69,6 +69,7 @@ def process_cluster_data(scaled_df,
     
     # Step 1: Filter DataFrame to just include 'num_id', 'week', and the cluster variable
     var_df = scaled_df[['num_id', 'week', cluster_variable]]
+    print('Var df:\n', var_df.head())
     
     # Step 2: Group by participant and week and compute the average of the cluster variable
     grouped_df = var_df.groupby(['num_id', 'week'], as_index=False)[cluster_variable].mean()
@@ -88,18 +89,19 @@ def process_cluster_data(scaled_df,
         plt.title(f'Distribution of Participants by Week for Variable: {cluster_variable}')
         plt.xticks(week_counts.index)
         plt.show()
+
     
     # Step 6: Pivot the DataFrame to create a matrix with participants as rows and weeks as columns
     # fill na with 0 then mask out later
     pivot_df = grouped_df.pivot(index='num_id', columns='week', values=cluster_variable).reset_index().fillna(0)
+    # Step 4: Remove the columns name ('week') for clarity, since the index is not actually the weeks 
+    pivot_df.columns.name = None
 
     # Step 7: Identify the columns corresponding to the required weeks
     week_columns = [week for week in required_weeks if week in pivot_df.columns]
-    print("weeks found:", week_columns)
     
     
     # Step 9: Print the shape of the filtered DataFrame
-    print("Filtered DataFrame shape:", pivot_df.shape)
     pivot_df_for_graphing = pivot_df.mask(pivot_df==0)
     
     # Step 10: Plot the variable's scores for each participant over the required weeks if requested
@@ -118,7 +120,7 @@ def process_cluster_data(scaled_df,
 
 
 
-def compute_distance_matrix(filtered_df, required_weeks):
+def compute_distance_matrix(filtered_df, required_weeks, verbose=False):
     """
     Compute a symmetric euclidean distance matrix for the data in filtered_df.
     Only the columns in required_weeks are used.
@@ -139,6 +141,12 @@ def compute_distance_matrix(filtered_df, required_weeks):
                 d = d[0]
             dtw_matrix[i, j] = d
             dtw_matrix[j, i] = d  # symmetry
+    if verbose:
+        print("Euclidean distance matrix stats:")
+        print("Min:", np.min(dtw_matrix))
+        print("Max:", np.max(dtw_matrix))
+        print("Mean:", np.mean(dtw_matrix))
+
     return dtw_matrix
 
 def compute_dtw_matrix(filtered_df, required_weeks, verbose=False):
@@ -171,7 +179,7 @@ def compute_dtw_matrix(filtered_df, required_weeks, verbose=False):
 
     return dtw_matrix
 
-def cluster_distance_analysis(df, cols, cluster_var, n_clusters_range=range(1, 11)):
+def cluster_distance_analysis(df, cols, cluster_var, n_clusters_range=range(1, 11), metric='euclidean', verbose=False):
     """
     Compute the DTW distance matrix for filtered_df (using cols),
     embed the distances into Euclidean space with MDS,
@@ -188,8 +196,14 @@ def cluster_distance_analysis(df, cols, cluster_var, n_clusters_range=range(1, 1
       embedding: 2D coordinates from MDS.
       results: dictionary containing inertia, silhouette scores, and DB scores.
     """
+
     # Step 1: Compute the DTW distance matrix
-    distance_matrix = compute_distance_matrix(df, cols)
+    if metric=='euclidean':
+        distance_matrix = compute_distance_matrix(df, cols, verbose)
+    elif metric=='dtw':
+        distance_matrix = compute_dtw_matrix(df, cols, verbose)
+    else:
+        return ValueError
     
     # Check if the distance matrix is valid
     if np.isnan(distance_matrix).any():
@@ -227,7 +241,7 @@ def cluster_distance_analysis(df, cols, cluster_var, n_clusters_range=range(1, 1
     plt.plot(list(n_clusters_range)[1:], silhouette_scores, marker='o')
     plt.xlabel('Number of clusters')
     plt.ylabel('Silhouette Score')
-    plt.title(f'Silhouette Score For Optimal k for {cluster_var}\n(Choose highest score)')
+    plt.title(f'Silhouette Score For Optimal k for {cluster_var}, metric: {metric}\n(Choose highest score)')
     plt.grid()
     plt.show()
     
@@ -236,7 +250,7 @@ def cluster_distance_analysis(df, cols, cluster_var, n_clusters_range=range(1, 1
     plt.plot(list(n_clusters_range)[1:], db_scores, marker='o')
     plt.xlabel('Number of clusters')
     plt.ylabel('Davies-Bouldin Index')
-    plt.title(f'Davies-Bouldin Index For Optimal k for {cluster_var}\n(Choose lowest score)')
+    plt.title(f'Davies-Bouldin Index For Optimal k for {cluster_var}, metric: {metric}\n(Choose lowest score)')
     plt.grid()
     plt.show()
     
