@@ -29,11 +29,17 @@ from fastdtw import dtw
 from sklearn.metrics import normalized_mutual_info_score
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from outliers import smirnov_grubbs as grubbs
-
-
-
+import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.metrics import pairwise_distances
+from sklearn.metrics import jaccard_score
+from scipy.spatial.distance import pdist, squareform
+from scipy.cluster.hierarchy import dendrogram, linkage
+from sklearn.utils import resample
+from tqdm import tqdm
+
+
 
 def process_cluster_data(scaled_df, 
                          cluster_variable='mobility',
@@ -357,35 +363,9 @@ def cluster_dtw_analysis(df, cols, eps_values=np.linspace(0.05, 1.0, 20), min_sa
 
 
 
-def normalize_df(df, columns_to_scale):
-    scaler = MinMaxScaler()
-    # Select all columns which aren't in columns_to_scale
-    non_numeric_cols = list(set(df.columns.to_list()).difference(columns_to_scale))
-    scaled_df = df[non_numeric_cols]
-    for x_col in columns_to_scale:
-        #print('\nFOR COLUMN:', x_col)
-        col_df = df[['num_id', x_col]].dropna()  # Drop NaNs
-        col_df_clean = col_df[col_df[x_col] != 0]  # Remove 0 values
 
-        # Reshape to 2D array as scaler expects
-        if col_df_clean[x_col].shape[0] > 1:
-            col_df_clean[f'{x_col}_scaled2'] = scaler.fit_transform(col_df_clean[[x_col]])
-
-            ## Find outliers using Smirnov_Grubbs test and flatten the result
-            non_outliers = grubbs.test(col_df_clean[[f'{x_col}_scaled2']].to_numpy(), alpha=0.05).flatten()
-            # Only keep numbers in x_col_scaled which are not-outliers
-            col_df_clean[f'{x_col}_scaled'] = col_df_clean[f'{x_col}_scaled2'].where(col_df_clean[f'{x_col}_scaled2'].isin(non_outliers))
-
-            # Assign scaled values back to the original DataFrame, aligning indices
-            scaled_df[x_col] = pd.Series(
-                col_df_clean[f'{x_col}_scaled'].values,
-                index=col_df_clean.index
-            )
-    return scaled_df
-
-
-
-def hierarchical_agg_plot(condensed_matrix):
+def hierarchical_agg_plot(distance_matrix):
+    condensed_matrix = squareform(distance_matrix)
     # Handle non-finite values
     condensed_matrix = np.where(np.isinf(condensed_matrix), np.nan, condensed_matrix)
     
@@ -402,3 +382,46 @@ def hierarchical_agg_plot(condensed_matrix):
     plt.subplot(2,2,3), dendrogram(Z3), plt.title('Average')
     plt.subplot(2,2,4), dendrogram(Z4), plt.title('Ward')
     plt.show()
+
+def compute_jaccard_index(labels1, labels2):
+    # Align by cluster membership
+    n = len(labels1)
+    jaccard_scores = []
+
+    for i in range(n):
+        for j in range(i+1, n):
+            same_cluster_1 = labels1[i] == labels1[j]
+            same_cluster_2 = labels2[i] == labels2[j]
+            jaccard_scores.append(int(same_cluster_1 and same_cluster_2))
+
+    return np.mean(jaccard_scores)
+
+
+def cluster_stability_analysis(X, method='kmeans', max_k=10, n_bootstraps=1000):
+    results = {k: [] for k in range(2, max_k+1)}
+    
+    for k in range(2, max_k+1):
+        print(f"Clustering with k = {k}")
+        for _ in tqdm(range(n_bootstraps)):
+            sample_indices = resample(range(X.shape[0]), replace=False, n_samples=X.shape[0]//2)
+            sample = X[sample_indices, :]
+            
+            # Fit clustering on sample
+            if method == 'kmeans':
+                model = KMeans(n_clusters=k, n_init=10, random_state=42)
+            elif method == 'agg':
+                model = AgglomerativeClustering(n_clusters=k, linkage='ward')
+            else:
+                raise ValueError("Unsupported method")
+            
+            labels_sample = model.fit_predict(sample)
+            
+            # Fit again on the same data (this can be adjusted)
+            model2 = model
+            labels_sample2 = model2.fit_predict(sample)
+            
+            # Compute Jaccard similarity between runs
+            jac = compute_jaccard_index(labels_sample, labels_sample2)
+            results[k].append(jac)
+    
+    return results
