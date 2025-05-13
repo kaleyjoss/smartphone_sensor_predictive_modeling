@@ -190,7 +190,7 @@ def average_matrix(symptom_matrices):
 
 
 
-def make_symptom_matrices(df, ignore_cols, num_to_plot=0):
+def make_symptom_matrices(df, ignore_cols, num_to_plot=0, first_half=False, second_half=False):
     symptom_matrices = {}
     flattened_matrices = {}
 
@@ -199,7 +199,18 @@ def make_symptom_matrices(df, ignore_cols, num_to_plot=0):
     print(f'In df there are {len(df['num_id'].unique())} subjects.')
     count=0
     for sub in df['num_id'].unique():
-        data = df[df['num_id']==sub] # filter for each specific sub
+        data = df[df['num_id']==sub].reset_index(drop=True) # filter for each specific sub
+        if first_half==True or second_half==True:
+            half1=len(data)//2
+            if len(data) < 30:
+                #print(f"Skipping sub {sub}, >30 days of data")
+                continue
+            else:
+                if first_half==True:
+                    data = data.iloc[:half1, :]
+                if second_half==True:
+                    data = data.iloc[half1:, :]
+
         # keep only numerical/changing columns
         keep_columns = list(set(df.columns.to_list()) - set(ignore_cols))
         data = data[keep_columns] 
@@ -239,9 +250,14 @@ def make_symptom_matrices(df, ignore_cols, num_to_plot=0):
                     plt.show() 
 
                     count+=1 
-
-    print(len(symptom_matrices.keys()), 'subs with symptom matrices')
-    print(len(flattened_matrices.keys()), 'filled condensed arrays')
+    if first_half==True:
+        half="First half"
+    elif second_half==True:
+        half="Second half"
+    else:
+        half=''
+    print(len(symptom_matrices.keys()), f'{half} subs with symptom matrices')
+    print(len(flattened_matrices.keys()), f'{half} filled condensed arrays')
 
     return symptom_matrices, flattened_matrices
 

@@ -671,7 +671,7 @@ def missforest_imputation_bysub(original_df, cols_to_impute, imputation_threshol
 
 
 
-def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6, error_threshold=0.8, verbose=False):
+def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6, error_threshold=0.8, verbose=False, drop_subs=False):
     """
     Impute missing values using MissForest for each subject (identified by 'num_id')
     if the subject has at less than imputation_threshold proportion of missing data.
@@ -715,8 +715,15 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6,
     # Check that it's over the imputation threshold (ie 60%, 70% etc)
     if non_missing_proportion < imputation_threshold:
         if verbose:
-            print(f"Not imputing: non missing perc is only {non_missing_proportion}, not < {imputation_threshold}")
-            return original_df, r2, p, imputed_cols, nonimputed_cols
+            print(f"Error on imputing: non missing perc is only {non_missing_proportion}, not > {imputation_threshold}")
+            if drop_subs==True:
+                for sub in df_clean['num_id'].unique():
+                    sub_df = df_clean[df_clean['num_id']==sub]
+                    na = sub_df.isna().mean().mean()
+                    if na < imputation_threshold:
+                        print()
+            else:
+                return original_df, r2, p, imputed_cols, nonimputed_cols
     else:
         if verbose:
             print(f"Imputing: non missing perc is {non_missing_proportion}...")
@@ -772,6 +779,7 @@ def missforest_imputation(original_df, cols_to_impute, imputation_threshold=0.6,
 
 ####################### Regress out covariates ##########################
 def regress_covariates(df, to_regress_out, to_ignore=None):
+    
     # 2. Define covariates
     to_modify = list(set(df.columns.to_list()) - set(to_regress_out + to_ignore))
 
