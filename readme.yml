@@ -44,17 +44,13 @@ Steps of process:
     - by mobility over time
     - by activity over time
   - Clustering of participants into demographic groups
-4. Cluster Analysis
   - Bar plots of various clusters for target variables
   - Plotting graphs and descriptive statistics for clusters vs. target variable over time
-5. Preprocessing for machine learning
-  - Scaling
-  - Encoding categorical variables
-  - Creating wide dataframes
-  - Creating lagged dataframes
-5. Modeling Linear Regression and Mixed Effects Linear Regression
-6. Modeling Decision Trees
-7. Modeling Random Forest
+4. Modeling
+  - Modeling all datasets using linear regression and nested linear regression
+  - Modeling imputed and non-imputed data on a variety of ML algorithms
+  - Hyperparameter tuning for best-performing algorithm on the validation set
+  - Performance on the test set
 
   
   
