@@ -56,7 +56,7 @@ The project follows these main steps:
 
 ## Dependencies
 
-To replicate the analysis, install the required Python packages:
+To replicate the analysis, pip install the requirements.tct:
 
 ```bash
 pip install -r requirements.txt
@@ -74,13 +74,6 @@ pip install -r requirements.txt
 
 5. **Results Analysis**: Review the `05_results.ipynb` notebook for a comprehensive analysis of model performance and findings.
 
-## Contributing
-
-Contributions are welcome. Please fork the repository and submit a pull request with your enhancements.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
 
 ---
 
